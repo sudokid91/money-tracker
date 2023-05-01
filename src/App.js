@@ -1,10 +1,32 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
+import axios from "axios";
 
 function App() {
 	const [name, setName] = useState("");
 	const [datetime, setDatetime] = useState("");
 	const [description, setDescription] = useState("");
+
+	const [transactions, setTransactions] = useState([]);
+
+	useEffect(() => {
+		getTransactions();
+	}, []);
+
+	const getTransactions = async () => {
+		const url = "http://localhost:5000/api/transactions";
+		axios({
+			method: "get",
+			url: url,
+		})
+			.then((response) => {
+				const { data, status } = response;
+				if (status === 200) {
+					setTransactions(data);
+				}
+			})
+			.catch((err) => console.error(err));
+	};
 
 	const onChangeName = (e) => {
 		setName(e.target.value);
@@ -20,27 +42,46 @@ function App() {
 
 	const handleSubmit = (e) => {
 		e.preventDefault();
-		const PORT = process.env.PORT || 5000;
-		const url = `http://localhost:${PORT}/api/transaction`;
-		fetch(url, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ name, description, datetime }),
+		const url = "http://localhost:5000/api/transaction";
+		const price = name.split(" ")?.[0];
+		axios({
+			method: "post",
+			url: url,
+			data: {
+				name: name.substring(price.length + 1),
+				price,
+				description,
+				datetime,
+			},
 		})
-			.then((res) => {
-				res.json().then((json) => {
-					console.log("result:", json);
-				});
+			.then((response) => {
+				const { data, status } = response;
+				if (status === 200) {
+					console.log(`response: `, { data });
+					setDatetime("");
+					setDescription("");
+					setName("");
+				}
+				getTransactions();
 			})
-			.catch((err) => {
-				console.log(err);
-			});
+			.catch((err) => console.error(err));
 	};
+
+	let balance = 0;
+
+	for (const transaction of transactions) {
+		balance = balance + transaction.price;
+	}
+
+	balance = balance.toFixed(2);
+
+	const fraction = balance.split(".")[1];
+	balance = balance.split(".")[0];
 
 	return (
 		<main>
 			<h1>
-				$400<span>.00</span>
+				${balance}.<span>{fraction}</span>
 			</h1>
 			<form onSubmit={handleSubmit}>
 				<div className="basic">
@@ -49,6 +90,7 @@ function App() {
 						onChange={onChangeName}
 						placeholder="+200 new samsum tv"
 						type="text"
+						pattern="[^\w\d]*(([0-9]+.*[A-Za-z]+.*)|[A-Za-z]+.*([0-9]+.*))"
 					/>
 					<input
 						type="datetime-local"
@@ -67,28 +109,26 @@ function App() {
 				<button type="submit">Add new transactions</button>
 			</form>
 			<div className="transactions">
-				<div className="transaction">
-					<div className="left">
-						<div className="name">New samsum tv</div>
-						<div className="description">It was time for new tv</div>
-					</div>
-					<div className="right">
-						<div className="price red">-$500</div>
-						<div className="datetime">2023/05/01 15:45</div>
-					</div>
-				</div>
-			</div>
-			<div className="transactions">
-				<div className="transaction">
-					<div className="left">
-						<div className="name">Gig job new website</div>
-						<div className="description">It was time for new tv</div>
-					</div>
-					<div className="right">
-						<div className="price green">+$400</div>
-						<div className="datetime">2023/05/01 15:45</div>
-					</div>
-				</div>
+				{transactions && transactions.length > 0 ? (
+					transactions.map((item, index) => {
+						return (
+							<div className="transaction" key={`${index}`}>
+								<div className="left">
+									<div className="name">{item.name}</div>
+									<div className="description">{item.description}</div>
+								</div>
+								<div className="right">
+									<div className={`price ${item.price > 0 ? "green" : "red"}`}>
+										{item.price}
+									</div>
+									<div className="datetime">{item.datetim}</div>
+								</div>
+							</div>
+						);
+					})
+				) : (
+					<div />
+				)}
 			</div>
 		</main>
 	);
